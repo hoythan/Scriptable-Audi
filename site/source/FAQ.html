@@ -1,0 +1,102 @@
+@@include('header.htm')
+
+@@include('blocks/navigation.htm', {"pages" : "active", "faq" : "active"})
+
+@@include('blocks/page-title.htm',{
+	"title"		: "Audi Joiner 疑难解答",
+	"description" : "在这里将会收集一些常见的问题解答"
+})
+
+<!--=================================
+=            FAQ Section            =
+==================================-->
+<section class="faq section pt-0">
+	<div class="container">
+		<div class="row">
+			<div class="col-lg-10 m-auto">
+				<div class="block shadow">
+					<div class="faq-item">
+						<div class="faq-item-title">
+							<h2>
+								Scriptable 应用
+							</h2>
+						</div>
+						<div id="gstAccordion" data-children=".item">
+						  <div class="item">
+						  	<div class="item-link">
+							    <a data-toggle="collapse" data-parent="#gstAccordion" href="#gstAccordion1">
+                    Scriptable 应用收费吗？为什么是英文的？
+							    </a>
+						  	</div>
+						    <div id="gstAccordion1" class="collapse show accordion-block">
+						      <p>
+						        目前 Scriptable 应用是免费的，作者后续会添加简体中文支持，不过这也没关系，因为用上 Audi Joiner 小组件接触到 Scriptable 核心内容很少，无需担心软件带来心智负担的问题。
+						      </p>
+						    </div>
+						  </div>
+						  <div class="item">
+						  	<div class="item-link">
+							    <a data-toggle="collapse" data-parent="#gstAccordion" href="#gstAccordion2">
+                    运行脚本或者打开软件提示：「Access to contacts is not granted. Grant access from the system Settings.」问题？
+							    </a>
+						  	</div>
+						    <div id="gstAccordion2" class="collapse accordion-block">
+						      <p>
+                    请到「设置 - 隐私 - 通讯录」找到 Scriptable 应用赋予权限
+						      </p>
+						    </div>
+						  </div>
+						</div>
+					</div>
+					<div class="faq-item">
+						<div class="faq-item-title">
+							<h2>
+								Audi Joiner 小组件
+							</h2>
+						</div>
+						<div id="accountAccordion" data-children=".item">
+						  <div class="item">
+						  	<div class="item-link">
+							    <a data-toggle="collapse" data-parent="#accountAccordion" href="#accountAccordion1">
+                    Audi Joiner 小组件是否存在安全性问题？
+							    </a>
+						  	</div>
+						    <div id="accountAccordion1" class="collapse accordion-block">
+						      <p>
+						        目前 Audi Joiner 小组件代码社区开源，没有后门也没有广告，安全透明，并且编译的代码没有混淆，欢迎大家来审查代码！
+						      </p>
+						    </div>
+						  </div>
+						</div>
+					</div>
+          <div class="faq-item">
+            <div class="faq-item-title">
+              <h2>
+                联系方式
+              </h2>
+            </div>
+            <div id="contactAccordion" data-children=".item">
+              <div class="item">
+                <div class="item-link">
+                  <a data-toggle="collapse" data-parent="#accountAccordion" href="#contactAccordion1">
+                    怎么联系作者咨询问题呢？
+                  </a>
+                </div>
+                <div id="contactAccordion1" class="collapse accordion-block">
+                  <p class="text-center">
+                    <img src="https://gitee.com/JaxsonWang/scriptable-audi/raw/master/assets/groups/WeChat.JPG" class="donation-image" alt="png" />
+                  </p>
+                  <p>如果遇到二维码失效，请耐心等待更新！</p>
+                </div>
+              </div>
+            </div>
+          </div>
+				</div>
+			</div>
+		</div>
+	</div>
+</section>
+
+@@include('blocks/footer.htm')
+
+@@include('footer.htm')
