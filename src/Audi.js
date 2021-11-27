@@ -1,6 +1,9 @@
 // Variables used by Scriptable.
 // These must be at the very top of the file. Do not edit.
 // icon-color: cyan; icon-glyph: car;
+// Variables used by Scriptable.
+// These must be at the very top of the file. Do not edit.
+// icon-color: cyan; icon-glyph: car;
 //
 // iOS 桌面组件脚本
 // 开发说明：请从 Widget 类开始编写，注释请勿修改
@@ -11,6 +14,12 @@ if (typeof require === 'undefined') require = importModule
 const { Base, Testing } = require('./depend')
 
 // @组件代码开始
+const AUDI_VERSION = 20211127.2
+const DEFAULT_LIGHT_BACKGROUND_COLOR_1 = '#FFFFFF'
+const DEFAULT_LIGHT_BACKGROUND_COLOR_2 = '#B2D4EC'
+const DEFAULT_DARK_BACKGROUND_COLOR_1 = '#404040'
+const DEFAULT_DARK_BACKGROUND_COLOR_2 = '#1E1E1E'
+
 const AUDI_SERVER_API = {
   login: 'https://audi2c.faw-vw.com/capi/v1/user/login',
   token: 'https://mbboauth-1d.prd.cn.vwg-connect.cn/mbbcoauth/mobile/oauth2/v1/token',
@@ -44,13 +53,6 @@ const GLOBAL_USER_DATA = {
 }
 const AUDI_AMAP_KEY = 'c078fb16379c25bc0aad8633d82cf1dd'
 
-const DEFAULT_LIGHT_BACKGROUND_COLOR_1 = '#FFFFFF'
-const DEFAULT_LIGHT_BACKGROUND_COLOR_2 = '#B2D4EC'
-const DEFAULT_DARK_BACKGROUND_COLOR_1 = '#404040'
-const DEFAULT_DARK_BACKGROUND_COLOR_2 = '#1E1E1E'
-
-const AUDI_VERSION = 20211125.0
-
 class Widget extends Base {
   /**
    * 传递给组件的参数，可以是桌面 Parameter 数据，也可以是外部如 URLScheme 等传递的数据
@@ -66,9 +68,14 @@ class Widget extends Base {
       this.registerAction('个性化配置', this.actionPreferenceSettings)
       this.registerAction('退出登录', this.actionLogOut)
       this.registerAction('检查更新', this.actionCheckUpdate)
-      this.registerAction(AUDI_VERSION + ' 内测版', this.actionCheckUpdate)
+      this.registerAction(AUDI_VERSION.toString() + ' 内测版', this.actionCheckUpdate)
       this.registerAction('关于小组件', this.actionAbout)
     }
+
+    console.log('当前系统:' + Device.model() + ' ' + Device.systemName() + ' ' + Device.systemVersion())
+    console.log('屏幕尺寸宽:' + Device.screenSize().width + ', 高:' + Device.screenSize().height)
+    console.log('屏幕分辨率宽:' + Device.screenResolution().width + ', 高:' + Device.screenResolution().height)
+    console.log('屏幕比例:' + Device.screenScale())
   }
 
   /**
@@ -140,24 +147,26 @@ class Widget extends Base {
     const widget = new ListWidget()
     widget.backgroundGradient = this.getBackgroundColor()
 
-    // 添加 Audi Logo
+    // 添加 Audi Logo1
     const _audiLogo = widget.addImage(await this.getImageByUrl(DEFAULT_AUDI_LOGO))
     _audiLogo.imageSize = new Size(50, 15)
     _audiLogo.rightAlignImage()
 
     const stack = widget.addStack()
-    stack.spacing = 8
-    stack.addSpacer(2)
+
+    const width = (Device.screenResolution().width / Device.screenScale()) / 2 - 260
 
     // region leftStack start
     const leftStack = stack.addStack()
+    // leftStack.backgroundColor = Color.gray()
+    leftStack.size = new Size(width, leftStack.size.height)
     leftStack.layoutVertically()
 
     const _title = leftStack.addText(data.seriesName)
     _title.textOpacity = 1
     _title.font = Font.systemFont(18)
     leftStack.addSpacer(2)
-    const _desc = leftStack.addText('Power: ' + data.modelShortName)
+    const _desc = leftStack.addText(data.modelShortName)
     _desc.textOpacity = 0.75
     _desc.font = Font.systemFont(14)
     leftStack.addSpacer(10)
@@ -189,26 +198,28 @@ class Widget extends Base {
 
     // region rightStack start
     const rightStack = stack.addStack()
-    rightStack.setPadding(10, 0, 0, 0)
+    // rightStack.backgroundColor = Color.gray()
+    rightStack.size = new Size(width, rightStack.size.height)
     rightStack.layoutVertically()
 
-    const _audiImage = rightStack.addImage(await this.getMyCarPhoto())
-    _audiImage.imageSize = new Size(180, 80)
+    const audiStack = rightStack.addStack()
+    audiStack.setPadding(20, 0, 10, 0)
+    // audiStack.backgroundColor = Color.green()
+
+    const _audiImage = audiStack.addImage(await this.getMyCarPhoto())
+    _audiImage.imageSize = new Size(150, 60)
     _audiImage.applyFillingContentMode()
 
-
     const rightBottomStack = rightStack.addStack()
-    // 间隔
-    const rightBottomStack1 = rightBottomStack.addStack()
-    rightBottomStack1.addText('')
-    rightBottomStack1.addSpacer(30)
+    // rightBottomStack.backgroundColor = Color.lightGray()
+    rightBottomStack.size = new Size(150, 15)
     // 车辆状态
-    const rightBottomStack2 = rightBottomStack.addStack()
     let getCarStatus = data.status ? '已锁车' : '未锁车'
     data.doorAndWindow ? getCarStatus += '并且门窗已关闭' : getCarStatus = '请检查车窗是否已关闭'
-    const _audiStatus = rightBottomStack2.addText(getCarStatus)
+    const _audiStatus = rightBottomStack.addText(getCarStatus)
     _audiStatus.font = Font.systemFont(12)
     if (!data.status || !data.doorAndWindow) _audiStatus.textColor = new Color('#FF9900', 1)
+
     // endregion
 
     // 祝语
@@ -673,10 +684,12 @@ class Widget extends Base {
    */
   async handleVehiclesPosition() {
     if (!Keychain.contains('authToken')) {
-      return this.notify('获取 authToken 密钥失败', '请退出登录再登录重试！')
+      await this.notify('获取 authToken 密钥失败', '请退出登录再登录重试！')
+      return Keychain.get('carPosition')
     }
     if (!Keychain.contains('myCarVIN')) {
-      return this.notify('获取 myCarVIN 数据失败', '请退出登录再登录重试！')
+      await this.notify('获取 myCarVIN 数据失败', '请退出登录再登录重试！')
+      return Keychain.get('carPosition')
     }
     const options = {
       url: AUDI_SERVER_API.vehiclesPosition(Keychain.get('myCarVIN')),
@@ -759,8 +772,11 @@ class Widget extends Base {
     }
     const response = await this.http(options)
     if (response.status === '1') {
-      Keychain.set('carAddress', response.regeocode.formatted_address)
-      return response.regeocode.formatted_address
+      // const address = response.regeocode.formatted_address
+      const addressComponent = response.regeocode.addressComponent
+      const address = addressComponent.city + addressComponent.district + addressComponent.township
+      Keychain.set('carAddress', address)
+      return address
     } else {
       await this.notify('获取车辆位置失败', '请检查高德地图 key 是否填写正常')
       if (Keychain.contains('carAddress')) {
@@ -846,7 +862,7 @@ class Widget extends Base {
     }]
 
     menuList.forEach(item => {
-      alert.addAction(item.icon + item.text)
+      alert.addAction(item.icon + ' ' +item.text)
     })
 
     alert.addCancelAction('取消设置')
@@ -1015,7 +1031,7 @@ class Widget extends Base {
     const log = response['changelog'].join('\n')
     const alert = new Alert()
     alert.title = '更新提示'
-    alert.message = `是否需要升级到${response['version']}版本\n\r${log}`
+    alert.message = `是否需要升级到${response['version'].toString()}版本\n\r${log}`
     alert.addAction('更新')
     alert.addCancelAction('取消')
     const id = await alert.presentAlert()

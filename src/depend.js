@@ -2,8 +2,6 @@
 // These must be at the very top of the file. Do not edit.
 // icon-color: deep-gray; icon-glyph: code-branch;
 //
-// 开发环境，用于小组件调用
-//
 
 class Base {
   constructor(arg = '') {

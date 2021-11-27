@@ -5,7 +5,7 @@
   "main": "app.js",
   "scripts": {
     "start": "node app",
-    "build": "node pack.js src/Audi-Joiner.js",
+    "build": "node pack.js src/Audi.js",
     "ncu": "npx npm-check-updates -u"
   },
   "author": "淮城一只猫",
