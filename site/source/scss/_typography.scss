@@ -1,5 +1,4 @@
-// Google Font Import
-@import url('https://fonts.googleapis.com/css?family=Lora:400,400i|Open+Sans:300,400,600,700,800');
+
 
 // Body
 body{
@@ -29,7 +28,7 @@ h3{
 	line-height: 30px;
 }
 
-// Others 
+// Others
 p, li, blockquote, label{
 	font-size: 16px;
 	letter-spacing: 0;
@@ -46,8 +45,8 @@ cite{
 	font-style: italic;
 }
 // Placeholder Color Change
-.form-control::-webkit-input-placeholder { 
-	color: $text-color; 
+.form-control::-webkit-input-placeholder {
+	color: $text-color;
 	line-height: 25px;
 	font-size: 16px;
 }

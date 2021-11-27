@@ -1,12 +1,11 @@
 {
   "name": "scriptable-audi-component",
   "version": "1.0.0",
-  "runtime_ver": 20211124,
   "description": "scriptable dev javascript",
   "main": "app.js",
   "scripts": {
     "start": "node app",
-    "build": "node pack.js src/Audi.js",
+    "build": "node pack.js src/Audi-Joiner.js",
     "ncu": "npx npm-check-updates -u"
   },
   "author": "淮城一只猫",

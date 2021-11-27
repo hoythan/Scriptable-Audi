@@ -24,8 +24,8 @@ const REQUEST_HEADER = {
   'User-Agent': 'MyAuDi/3.0.2 CFNetwork/1325.0.1 Darwin/21.1.0',
   'X-Client-ID': 'de6d8b23-792f-47b8-82f4-e4cc59c2916e'
 }
-const DEFAULT_MY_CAR_PHOTO = 'https://gitee.com/JaxsonWang/scriptable-audi/raw/master/assets/cars/2020A4LB9_20211125.png'
-const DEFAULT_AUDI_LOGO = 'https://gitee.com/JaxsonWang/scriptable-audi/raw/master/assets/images/audi-logo.png'
+const DEFAULT_MY_CAR_PHOTO = 'https://gitee.com/JaxsonWang/scriptable-audi/raw/master/assets/cars/2020A4LB9_20211127.png'
+const DEFAULT_AUDI_LOGO = 'https://gitee.com/JaxsonWang/scriptable-audi/raw/master/assets/images/logo_20211127.png'
 const GLOBAL_USER_DATA = {
   seriesName: '奥迪A4L B9',
   modelShortName: '2.0 140KW',
@@ -38,15 +38,16 @@ const GLOBAL_USER_DATA = {
   carLocation: '',
   longitude: '',
   latitude: '',
-  status: 0, // 0 = 正常
+  status: true, // 0 = 已锁车
+  doorAndWindow: '', // 门窗状态
   myOne: '世间美好，与你环环相扣'
 }
 const AUDI_AMAP_KEY = 'c078fb16379c25bc0aad8633d82cf1dd'
 
-const DEFAULT_LIGHT_BACKGROUND_COLOR_1 = '#f1faf9'
-const DEFAULT_LIGHT_BACKGROUND_COLOR_2 = '#F0F3E4'
-const DEFAULT_DARK_BACKGROUND_COLOR_1 = '#203D49'
-const DEFAULT_DARK_BACKGROUND_COLOR_2 = '#7B9EAA'
+const DEFAULT_LIGHT_BACKGROUND_COLOR_1 = '#FFFFFF'
+const DEFAULT_LIGHT_BACKGROUND_COLOR_2 = '#B2D4EC'
+const DEFAULT_DARK_BACKGROUND_COLOR_1 = '#404040'
+const DEFAULT_DARK_BACKGROUND_COLOR_2 = '#1E1E1E'
 
 const AUDI_VERSION = 20211125.0
 
@@ -65,6 +66,7 @@ class Widget extends Base {
       this.registerAction('个性化配置', this.actionPreferenceSettings)
       this.registerAction('退出登录', this.actionLogOut)
       this.registerAction('检查更新', this.actionCheckUpdate)
+      this.registerAction(AUDI_VERSION + ' 内测版', this.actionCheckUpdate)
       this.registerAction('关于小组件', this.actionAbout)
     }
   }
@@ -138,11 +140,14 @@ class Widget extends Base {
     const widget = new ListWidget()
     widget.backgroundGradient = this.getBackgroundColor()
 
-    widget.addSpacer(20)
+    // 添加 Audi Logo
+    const _audiLogo = widget.addImage(await this.getImageByUrl(DEFAULT_AUDI_LOGO))
+    _audiLogo.imageSize = new Size(50, 15)
+    _audiLogo.rightAlignImage()
 
     const stack = widget.addStack()
-    stack.spacing = 20
-    stack.centerAlignContent()
+    stack.spacing = 8
+    stack.addSpacer(2)
 
     // region leftStack start
     const leftStack = stack.addStack()
@@ -184,32 +189,26 @@ class Widget extends Base {
 
     // region rightStack start
     const rightStack = stack.addStack()
+    rightStack.setPadding(10, 0, 0, 0)
     rightStack.layoutVertically()
-
-    const _audiLogo = rightStack.addImage(await this.getImageByUrl(DEFAULT_AUDI_LOGO))
-    _audiLogo.imageSize = new Size(180, 25)
-    _audiLogo.rightAlignImage()
 
     const _audiImage = rightStack.addImage(await this.getMyCarPhoto())
     _audiImage.imageSize = new Size(180, 80)
     _audiImage.applyFillingContentMode()
-    _audiImage.rightAlignImage()
-    rightStack.addSpacer(5)
-    // endregion rightStack end
 
-    // region leftBottomStack
-    // 车辆状态
+
     const rightBottomStack = rightStack.addStack()
-    // 间隔居中
+    // 间隔
     const rightBottomStack1 = rightBottomStack.addStack()
-    rightBottomStack1.addSpacer(35)
-
+    rightBottomStack1.addText('')
+    rightBottomStack1.addSpacer(30)
+    // 车辆状态
     const rightBottomStack2 = rightBottomStack.addStack()
-    const getCarStatus = data.status === 0 ? '当前车辆状态：正常' : '后右门没锁'
+    let getCarStatus = data.status ? '已锁车' : '未锁车'
+    data.doorAndWindow ? getCarStatus += '并且门窗已关闭' : getCarStatus = '请检查车窗是否已关闭'
     const _audiStatus = rightBottomStack2.addText(getCarStatus)
     _audiStatus.font = Font.systemFont(12)
-    _audiStatus.textOpacity = 0.75
-    _audiStatus.centerAlignText()
+    if (!data.status || !data.doorAndWindow) _audiStatus.textColor = new Color('#FF9900', 1)
     // endregion
 
     // 祝语
@@ -218,7 +217,6 @@ class Widget extends Base {
     _tips.textOpacity = 1
     _tips.font = Font.systemFont(12)
     _tips.centerAlignText()
-    widget.addSpacer(15)
 
     return widget
   }
@@ -317,6 +315,12 @@ class Widget extends Base {
     const enduranceVal = getCarStatusArr.find(i => i.id === '0x0301030005').value // 燃料总行程
     const fuelLevelVal = getCarStatusArr.find(i => i.id === '0x030103000A').value // 燃料百分比
     const mileageVal = getVehiclesStatusArr.find(i => i.id === '0x0101010002').field[0].value // 总里程
+
+    // 检查门锁 车门 车窗等状态
+    const isLocked = await this.getCarIsLocked(getCarStatusArr)
+    const doorStatusArr = await this.getCarDoorStatus(getCarStatusArr)
+    const windowStatusArr = await this.getCarWindowStatus(getCarStatusArr)
+    const equipmentStatusArr = [...doorStatusArr, ...windowStatusArr].map(i => i.name)
     // 写入信息
     if (getVehicleData.seriesName) GLOBAL_USER_DATA.seriesName = getVehicleData.seriesName // 车辆型号
     if (getVehicleData.carModelName) GLOBAL_USER_DATA.modelShortName = getVehicleData.carModelName // 车辆功率类型
@@ -329,10 +333,100 @@ class Widget extends Base {
     if (getVehiclesAddress) GLOBAL_USER_DATA.carLocation = getVehiclesAddress // 详细地理位置
     if (getVehiclesPosition.longitude) GLOBAL_USER_DATA.longitude = getVehiclesPosition.longitude // 车辆经度
     if (getVehiclesPosition.latitude) GLOBAL_USER_DATA.latitude = getVehiclesPosition.latitude // 车辆纬度
-    // if (this.settings['myOne']) GLOBAL_USER_DATA.status = 0 // 车辆状态 0 = 正常
+    if (isLocked !== undefined) GLOBAL_USER_DATA.status = isLocked // 车辆状态 true = 已锁车
+    if (equipmentStatusArr) GLOBAL_USER_DATA.doorAndWindow = equipmentStatusArr.length === 0 // true 车窗已关闭 | false 请检查车窗是否关闭
     if (this.settings['myOne']) GLOBAL_USER_DATA.myOne = this.settings['myOne'] // 一言
 
     return GLOBAL_USER_DATA
+  }
+
+  /**
+   * 获取车辆锁车状态
+   * @param {Array} arr
+   * @return Promise<{boolean}> true = 锁车 false = 没有完全锁车
+   */
+  async getCarIsLocked (arr) {
+    // 先判断车辆是否锁定
+    const lockArr = ['0x0301040001', '0x0301040004', '0x0301040007', '0x030104000A', '0x030104000D']
+    // 筛选出对应的数组
+    const filterArr = arr.filter(item => lockArr.some(i => i === item.id))
+    // 判断是否都锁门
+    // value === 2 锁门
+    // value === 3 未锁门
+    return filterArr.every(item => item.value === '2')
+  }
+
+  /**
+   * 获取车辆车门/引擎盖/后备箱状态
+   * @param {Array} arr
+   * @return Promise<[]<{
+   *   id: string
+   *   name: string
+   * }>>
+   */
+  async getCarDoorStatus (arr) {
+    const doorArr = [
+      {
+        id: '0x0301040002',
+        name: '左前门'
+      }, {
+        id: '0x0301040005',
+        name: '左后门'
+      }, {
+        id: '0x0301040008',
+        name: '右前门'
+      }, {
+        id: '0x030104000B',
+        name: '右后门'
+      }, {
+        id: '0x0301040011',
+        name: '引擎盖'
+      }, {
+        id: '0x030104000E',
+        name: '后备箱'
+      }
+    ]
+    // 筛选出对应的数组
+    const filterArr = arr.filter(item => doorArr.some(i => i.id === item.id))
+    // 筛选出没有关门id
+    const result = filterArr.filter(item => item.value === '2')
+    // 返回开门的数组
+    return doorArr.filter(i => result.some(x => x.id === i.id))
+  }
+
+  /**
+   * 获取车辆车窗/天窗状态
+   * @param {Array} arr
+   * @return Promise<[]<{
+   *   id: string
+   *   name: string
+   * }>>
+   */
+  async getCarWindowStatus (arr) {
+    const windowArr = [
+      {
+        id: '0x0301050001',
+        name: '左前窗'
+      }, {
+        id: '0x0301050003',
+        name: '左后窗'
+      }, {
+        id: '0x0301050005',
+        name: '右前窗'
+      }, {
+        id: '0x0301050007',
+        name: '右后窗'
+      }, {
+        id: '0x030105000B',
+        name: '天窗'
+      }
+    ]
+    // 筛选出对应的数组
+    const filterArr = arr.filter(item => windowArr.some(i => i.id === item.id))
+    // 筛选出没有关门id
+    const result = filterArr.filter(item => item.value === '2')
+    // 返回开门的数组
+    return windowArr.filter(i => result.some(x => x.id === i.id))
   }
 
   /**
@@ -633,7 +727,10 @@ class Widget extends Base {
       if (Keychain.contains('carPosition')) {
         return Keychain.get('carPosition')
       } else {
-        return undefined
+        return JSON.stringify({
+          longitude: -1,
+          latitude: -1
+        })
       }
     }
   }
@@ -644,11 +741,17 @@ class Widget extends Base {
    */
   async handleGetCarAddress() {
     if (!Keychain.contains('storedPositionResponse') && !Keychain.contains('carPosition')) {
-      return this.notify('获取车辆经纬度失败', '请退出登录再登录重试！')
+      await this.notify('获取车辆经纬度失败', '请退出登录再登录重试！')
+      return '暂无位置信息'
     }
     const carPosition = JSON.parse(Keychain.get('carPosition'))
     const longitude = parseInt(carPosition.longitude, 10) / 1000000
     const latitude = parseInt(carPosition.latitude, 10) / 1000000
+
+    // longitude latitude 可能会返回负数的问题
+    // 直接返回缓存数据
+    if (longitude < 0 || latitude < 0) return '暂无位置信息'
+
     const aMapKey = this.settings['aMapKey'] ? this.settings['aMapKey'] : AUDI_AMAP_KEY
     const options = {
       url: `https://restapi.amap.com/v3/geocode/regeo?key=${aMapKey}&location=${longitude},${latitude}&radius=1000&extensions=base&batch=false&roadlevel=0`,
@@ -659,12 +762,11 @@ class Widget extends Base {
       Keychain.set('carAddress', response.regeocode.formatted_address)
       return response.regeocode.formatted_address
     } else {
-      this.notify('获取车辆位置失败', '请检查高德地图 key 是否填写正常')
+      await this.notify('获取车辆位置失败', '请检查高德地图 key 是否填写正常')
       if (Keychain.contains('carAddress')) {
         return Keychain.get('carAddress')
       } else {
-        Keychain.set('carAddress', '暂无车辆详细位置信息')
-        return Keychain.get('carAddress')
+        return '暂无位置信息'
       }
     }
   }
@@ -885,6 +987,7 @@ class Widget extends Base {
       'storedPositionResponse',
       'findCarResponse',
       'carPosition',
+      'carAddress',
       this.SETTING_KEY
     ]
     keys.forEach(key => {
@@ -901,7 +1004,7 @@ class Widget extends Base {
    * @returns {Promise<void>}
    */
   async actionCheckUpdate() {
-    const UPDATE_FILE = 'Audi.js'
+    const UPDATE_FILE = 'Audi-Joiner.js'
     const FILE_MGR = FileManager[module.filename.includes('Documents/iCloud~') ? 'iCloud' : 'local']()
     const request = new Request('https://gitee.com/JaxsonWang/scriptable-audi/raw/master/version.json')
     const response = await request.loadJSON()
@@ -930,7 +1033,7 @@ class Widget extends Base {
    * @returns {Promise<void>}
    */
   async actionAbout() {
-    Safari.open( 'https://audi.i95.me/about')
+    Safari.open( 'https://audi.i95.me/about.html')
   }
 
   /**
