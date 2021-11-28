@@ -28,13 +28,6 @@
     return false;
   });
 
-  $('.get-audi-joiner').on('click', function () {
-    $('body,html').animate({
-      scrollTop: 1000
-    }, 500);
-    return false;
-  });
-
   $(document).ready(function() {
 
     // navbarDropdown
@@ -58,6 +51,5 @@
       copyOK ++;
       document.getElementById("open").focus()
     })
-
   });
 })(jQuery);

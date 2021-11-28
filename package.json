@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node app",
     "build": "node pack.js src/Audi.js",
+    "build:beta": "node pack.js src/Audi-Beta.js",
     "ncu": "npx npm-check-updates -u"
   },
   "author": "淮城一只猫",
