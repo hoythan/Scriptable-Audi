@@ -14,7 +14,7 @@ if (typeof require === 'undefined') require = importModule
 const { Base, Testing } = require('./depend')
 
 // @组件代码开始
-const AUDI_VERSION = 1.0
+const AUDI_VERSION = 1.1
 const DEFAULT_LIGHT_BACKGROUND_COLOR_1 = '#FFFFFF'
 const DEFAULT_LIGHT_BACKGROUND_COLOR_2 = '#B2D4EC'
 const DEFAULT_DARK_BACKGROUND_COLOR_1 = '#404040'
@@ -70,12 +70,8 @@ class Widget extends Base {
       this.registerAction('检查更新', this.actionCheckUpdate)
       this.registerAction('打赏作者', this.actionDonation)
       this.registerAction('关于小组件', this.actionAbout)
+      this.registerAction('获取日志', this.actionLogAction)
     }
-
-    console.log('当前系统:' + Device.model() + ' ' + Device.systemName() + ' ' + Device.systemVersion())
-    console.log('屏幕尺寸宽:' + Device.screenSize().width + ', 高:' + Device.screenSize().height)
-    console.log('屏幕分辨率宽:' + Device.screenResolution().width + ', 高:' + Device.screenResolution().height)
-    console.log('屏幕比例:' + Device.screenScale())
   }
 
   /**
@@ -150,7 +146,8 @@ class Widget extends Base {
     // 宽度
     const widgetWidth = Device.screenResolution().width / Device.screenScale()
     const screenSize = Device.screenSize().width
-    const widthInterval = widgetWidth - screenSize === 0 ? 40 : widgetWidth - screenSize + 10
+    // 解决 1080 分辨率显示的问题
+    const widthInterval = widgetWidth - screenSize <= 0 ? 40 : widgetWidth - screenSize + 10
     const width = widgetWidth / 2 - widthInterval
 
     // 添加 Audi Stack
@@ -332,10 +329,23 @@ class Widget extends Base {
    * @returns {Promise<{Object}>}
    */
   async bootstrap() {
-    const getUserMineData = JSON.parse(Keychain.get('userMineData'))
-    const getVehicleData = getUserMineData.vehicleDto
+    try {
+      const getUserMineData = JSON.parse(Keychain.get('userMineData'))
+      const getVehicleData = getUserMineData.vehicleDto
+
+      if (getVehicleData.seriesName) GLOBAL_USER_DATA.seriesName = getVehicleData.seriesName // 车辆型号
+      if (getVehicleData.carModelName) GLOBAL_USER_DATA.modelShortName = getVehicleData.carModelName // 车辆功率类型
+      if (getVehicleData.vin) GLOBAL_USER_DATA.vin = getVehicleData.vin // 车架号
+      if (getVehicleData.engineNo) GLOBAL_USER_DATA.engineNo = getVehicleData.engineNo // 发动机型号
+      if (getVehicleData.plateNo) GLOBAL_USER_DATA.plateNo = getVehicleData.plateNo // 车牌号
+    } catch (e) {
+      console.error(e)
+    }
+
     const getVehiclesStatus = await this.handleVehiclesStatus()
-    const getVehiclesStatusArr = getVehiclesStatus.StoredVehicleDataResponse.vehicleData.data
+    const getVehicleResponseData = getVehiclesStatus?.StoredVehicleDataResponse?.vehicleData?.data
+    const getVehiclesStatusArr = getVehicleResponseData ? getVehicleResponseData : []
+
     const getVehiclesPosition = JSON.parse(await this.handleVehiclesPosition())
     const getVehiclesAddress = await this.handleGetCarAddress()
 
@@ -350,11 +360,6 @@ class Widget extends Base {
     const windowStatusArr = await this.getCarWindowStatus(getCarStatusArr)
     const equipmentStatusArr = [...doorStatusArr, ...windowStatusArr].map(i => i.name)
     // 写入信息
-    if (getVehicleData.seriesName) GLOBAL_USER_DATA.seriesName = getVehicleData.seriesName // 车辆型号
-    if (getVehicleData.carModelName) GLOBAL_USER_DATA.modelShortName = getVehicleData.carModelName // 车辆功率类型
-    if (getVehicleData.vin) GLOBAL_USER_DATA.vin = getVehicleData.vin // 车架号
-    if (getVehicleData.engineNo) GLOBAL_USER_DATA.engineNo = getVehicleData.engineNo // 发动机型号
-    if (getVehicleData.plateNo) GLOBAL_USER_DATA.plateNo = getVehicleData.plateNo // 车牌号
     if (enduranceVal) GLOBAL_USER_DATA.endurance = enduranceVal // NEDC 续航 单位 km
     if (fuelLevelVal) GLOBAL_USER_DATA.fuelLevel = fuelLevelVal // 燃料 单位百分比
     if (mileageVal) GLOBAL_USER_DATA.mileage = mileageVal // 总里程
@@ -477,9 +482,10 @@ class Widget extends Base {
 
   /**
    * 登录奥迪服务器
+   * @param {boolean} isDebug
    * @returns {Promise<void>}
    */
-  async handleAudiLogin() {
+  async handleAudiLogin(isDebug = false) {
     if (!Keychain.contains('userBaseInfoData')) {
       const options = {
         url: AUDI_SERVER_API.login,
@@ -493,11 +499,13 @@ class Widget extends Base {
         })
       }
       const response = await this.http(options)
+      if (isDebug) console.log('获取登陆信息:')
+      if (isDebug) console.log(response)
       // 判断接口状态
       if (response.code === 0) {
         // 登录成功 存储登录信息
+        console.log('登陆成功')
         Keychain.set('userBaseInfoData', JSON.stringify(response.data))
-        console.log('用户登录成功')
         await this.notify('登录成功', '正在从 Audi 服务器获取车辆数据，请耐心等待！')
         // 准备交换验证密钥数据
         await this.handleAudiGetToken('userIDToken')
@@ -509,6 +517,8 @@ class Widget extends Base {
       }
     } else {
       // 已存在用户信息
+      if (isDebug) console.log('检测本地缓存已有登陆数据:')
+      if (isDebug) console.log(Keychain.get('userBaseInfoData'))
       await this.handleAudiGetToken('userIDToken')
       await this.handleUserMineData()
     }
@@ -553,9 +563,10 @@ class Widget extends Base {
 
   /**
    * 获取用户信息
+   * @param {boolean} isDebug
    * @returns {Promise<void>}
    */
-  async handleUserMineData() {
+  async handleUserMineData(isDebug = false) {
     if (!Keychain.contains('userMineData')) {
       if (!Keychain.contains('userBaseInfoData')) {
         return this.notify('获取密钥数据失败', '没有拿到用户登录信息，请重新登录再重试！')
@@ -572,12 +583,14 @@ class Widget extends Base {
         }
       }
       const response = await this.http(options)
+      if (isDebug) console.log('获取用户信息：')
+      if (isDebug) console.log(response)
       // 判断接口状态
       if (response.code === 0) {
         // 存储车辆信息
+        console.log('用户基本信息获取成功')
         Keychain.set('userMineData', JSON.stringify(response.data))
         Keychain.set('myCarVIN', response.data?.vehicleDto?.vin)
-        console.log('车辆基本信息获取成功')
         // 准备交换验证密钥数据
         await this.handleAudiGetToken('userRefreshToken')
       } else {
@@ -586,6 +599,7 @@ class Widget extends Base {
       }
     } else {
       console.log('userMineData 信息已存在，开始获取 userRefreshToken')
+      if (isDebug) console.log(Keychain.get('userMineData'))
       await this.handleAudiGetToken('userRefreshToken')
     }
   }
@@ -654,9 +668,10 @@ class Widget extends Base {
   /**
    * 获取车辆当前状态
    * 需要实时获取
+   * @param {boolean} isDebug
    * @returns {Promise<void>}
    */
-  async handleVehiclesStatus() {
+  async handleVehiclesStatus(isDebug = false) {
     if (!Keychain.contains('authToken')) {
       return this.notify('获取 authToken 密钥失败', '请退出登录再登录重试！')
     }
@@ -677,6 +692,8 @@ class Widget extends Base {
       }
     }
     const response = await this.http(options)
+    if (isDebug) console.log('获取车辆状态信息：')
+    if (isDebug) console.log(response)
     // 判断接口状态
     if (response.error) {
       // 接口异常
@@ -697,9 +714,10 @@ class Widget extends Base {
   /**
    * 获取车辆当前经纬度
    * 需要实时获取
+   * @param {boolean} isDebug
    * @returns {Promise<string>}
    */
-  async handleVehiclesPosition() {
+  async handleVehiclesPosition(isDebug = false) {
     if (!Keychain.contains('authToken')) {
       await this.notify('获取 authToken 密钥失败', '请退出登录再登录重试！')
       return Keychain.get('carPosition')
@@ -723,6 +741,8 @@ class Widget extends Base {
     }
     try {
       const response = await this.http(options)
+      if (isDebug) console.log('获取车辆位置信息：')
+      if (isDebug) console.log(response)
       // 判断接口状态
       if (response.error) {
         // 接口异常
@@ -1085,6 +1105,54 @@ class Widget extends Base {
    */
   async actionAbout() {
     Safari.open( 'https://audi.i95.me/about.html')
+  }
+
+  /**
+   * 日志系统
+   * @return {Promise<void>}
+   */
+  async actionLogAction() {
+    const alert = new Alert()
+    alert.title = '获取函数日志'
+    alert.message = '开发者所需日志数据'
+
+    const menuList = [{
+      name: 'handleAudiLogin',
+      text: '登陆日志'
+    }, {
+      name: 'handleUserMineData',
+      text: '用户信息日志'
+    }, {
+      name: 'handleVehiclesStatus',
+      text: '当前车辆状态日志'
+    }, {
+      name: 'handleVehiclesPosition',
+      text: '车辆经纬度日志'
+    }, {
+      name: 'getDeviceInfo',
+      text: '获取设备信息'
+    }]
+
+    menuList.forEach(item => {
+      alert.addAction(item.text)
+    })
+
+    alert.addCancelAction('退出菜单')
+    const id = await alert.presentSheet()
+    if (id === -1) return
+    // 执行函数
+    await this[menuList[id].name](true)
+  }
+
+  /**
+   * 获取设备信息
+   * @return {Promise<void>}
+   */
+  async getDeviceInfo() {
+    console.log('当前系统:' + Device.model() + ' ' + Device.systemName() + ' ' + Device.systemVersion())
+    console.log('屏幕尺寸宽:' + Device.screenSize().width + ', 高:' + Device.screenSize().height)
+    console.log('屏幕分辨率宽:' + Device.screenResolution().width + ', 高:' + Device.screenResolution().height)
+    console.log('屏幕比例:' + Device.screenScale())
   }
 
   /**
