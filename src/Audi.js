@@ -332,6 +332,7 @@ class Widget extends Base {
     const getUserMineData = JSON.parse(Keychain.get('userMineData'))
     const getVehicleData = getUserMineData.vehicleDto
 
+    GLOBAL_USER_DATA.seriesName = this.settings['myCarName'] ? this.settings['myCarName'] : getVehicleData?.seriesName
     if (getVehicleData.seriesName) GLOBAL_USER_DATA.seriesName = getVehicleData?.seriesName // 车辆型号
     if (getVehicleData.carModelName) GLOBAL_USER_DATA.modelShortName = getVehicleData?.carModelName // 车辆功率类型
     if (getVehicleData.vin) GLOBAL_USER_DATA.vin = getVehicleData?.vin // 车架号
