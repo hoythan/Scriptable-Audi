@@ -329,18 +329,14 @@ class Widget extends Base {
    * @returns {Promise<{Object}>}
    */
   async bootstrap() {
-    try {
-      const getUserMineData = JSON.parse(Keychain.get('userMineData'))
-      const getVehicleData = getUserMineData.vehicleDto
+    const getUserMineData = JSON.parse(Keychain.get('userMineData'))
+    const getVehicleData = getUserMineData.vehicleDto
 
-      if (getVehicleData.seriesName) GLOBAL_USER_DATA.seriesName = getVehicleData.seriesName // 车辆型号
-      if (getVehicleData.carModelName) GLOBAL_USER_DATA.modelShortName = getVehicleData.carModelName // 车辆功率类型
-      if (getVehicleData.vin) GLOBAL_USER_DATA.vin = getVehicleData.vin // 车架号
-      if (getVehicleData.engineNo) GLOBAL_USER_DATA.engineNo = getVehicleData.engineNo // 发动机型号
-      if (getVehicleData.plateNo) GLOBAL_USER_DATA.plateNo = getVehicleData.plateNo // 车牌号
-    } catch (e) {
-      console.error(e)
-    }
+    if (getVehicleData.seriesName) GLOBAL_USER_DATA.seriesName = getVehicleData?.seriesName // 车辆型号
+    if (getVehicleData.carModelName) GLOBAL_USER_DATA.modelShortName = getVehicleData?.carModelName // 车辆功率类型
+    if (getVehicleData.vin) GLOBAL_USER_DATA.vin = getVehicleData?.vin // 车架号
+    if (getVehicleData.engineNo) GLOBAL_USER_DATA.engineNo = getVehicleData?.engineNo // 发动机型号
+    if (getVehicleData.plateNo) GLOBAL_USER_DATA.plateNo = getVehicleData?.plateNo // 车牌号
 
     const getVehiclesStatus = await this.handleVehiclesStatus()
     const getVehicleResponseData = getVehiclesStatus?.StoredVehicleDataResponse?.vehicleData?.data
@@ -349,10 +345,10 @@ class Widget extends Base {
     const getVehiclesPosition = JSON.parse(await this.handleVehiclesPosition())
     const getVehiclesAddress = await this.handleGetCarAddress()
 
-    const getCarStatusArr = getVehiclesStatusArr.find(i => i.id === '0x0301FFFFFF').field
-    const enduranceVal = getCarStatusArr.find(i => i.id === '0x0301030005').value // 燃料总行程
-    const fuelLevelVal = getCarStatusArr.find(i => i.id === '0x030103000A').value // 燃料百分比
-    const mileageVal = getVehiclesStatusArr.find(i => i.id === '0x0101010002').field[0].value // 总里程
+    const getCarStatusArr = getVehiclesStatusArr.find(i => i.id === '0x0301FFFFFF')?.field
+    const enduranceVal = getCarStatusArr.find(i => i.id === '0x0301030005')?.value // 燃料总行程
+    const fuelLevelVal = getCarStatusArr.find(i => i.id === '0x030103000A')?.value // 燃料百分比
+    const mileageVal = getVehiclesStatusArr.find(i => i.id === '0x0101010002')?.field[0]?.value // 总里程
 
     // 检查门锁 车门 车窗等状态
     const isLocked = await this.getCarIsLocked(getCarStatusArr)
@@ -704,7 +700,14 @@ class Widget extends Base {
           await this.handleAudiGetToken('userRefreshToken', true)
           await this.handleVehiclesStatus()
           break
+        case 'mbbc.rolesandrights.unauthorized':
+          const alert = new Alert()
+          alert.title = 'Audi Joiner 提示'
+          alert.message = '请检查您的车辆是否已经开启车联网服务，请到一汽奥迪应用查看！'
+          alert.addCancelAction('关闭')
+          break
       }
+      return false
     } else {
       // 接口获取数据成功
       return response
@@ -877,8 +880,12 @@ class Widget extends Base {
     alert.message = '根据您的喜好设置，更好展示组件数据'
 
     const menuList = [{
+      name: 'myCarName',
+      text: '自定义车辆名称',
+      icon: '💡'
+    }, {
       name: 'myCarPhoto',
-      text: '车辆照片',
+      text: '自定义车辆照片',
       icon: '🚙'
     }, {
       name: 'myOne',
@@ -909,10 +916,33 @@ class Widget extends Base {
   }
 
   /**
-   * 使用在线图片服务地址
+   * 自定义车辆名称
    * @returns {Promise<void>}
    */
   async actionPreferenceSettings0() {
+    const alert = new Alert()
+    alert.title = '车辆名称'
+    alert.message = '如果你不喜欢系统返回的名称可以自己定义名称'
+    alert.addTextField('请输入自定义名称', this.settings['myCarName'])
+    alert.addAction('确定')
+    alert.addCancelAction('取消')
+
+    const id = await alert.presentAlert()
+    if (id === -1) return await this.actionPreferenceSettings()
+    const value = alert.textFieldValue(0)
+    if (!value) return await this.actionPreferenceSettings0()
+
+    this.settings['myCarName'] = value
+    this.saveSettings()
+
+    return await this.actionPreferenceSettings()
+  }
+
+  /**
+   * 使用在线图片服务地址
+   * @returns {Promise<void>}
+   */
+  async actionPreferenceSettings1() {
     const alert = new Alert()
     alert.title = '车辆图片'
     alert.message = '请输入车辆在线图片，如果有素材想使用请联系作者或者请看帮助文档说明\n\r' +
@@ -940,7 +970,7 @@ class Widget extends Base {
    * 输入一言
    * @returns {Promise<void>}
    */
-  async actionPreferenceSettings1() {
+  async actionPreferenceSettings2() {
     const alert = new Alert()
     alert.title = '输入一言'
     alert.message = '请输入一言，将会在桌面展示语句，不填则显示 "世间美好，与你环环相扣"'
@@ -951,7 +981,11 @@ class Widget extends Base {
     const id = await alert.presentAlert()
     if (id === -1) return await this.actionPreferenceSettings()
     const value = alert.textFieldValue(0)
-    if (!value) return await this.actionPreferenceSettings1()
+    if (!value) {
+      this.settings['myOne'] = GLOBAL_USER_DATA.myOne
+      this.saveSettings()
+      return await this.actionPreferenceSettings()
+    }
 
     this.settings['myOne'] = value
     this.saveSettings()
@@ -963,7 +997,7 @@ class Widget extends Base {
    * 浅色模式
    * @returns {Promise<void>}
    */
-  async actionPreferenceSettings2() {
+  async actionPreferenceSettings3() {
     const alert = new Alert()
     alert.title = '浅色模式颜色代码'
     alert.message = '如果都输入相同的颜色代码小组件则是纯色背景色，如果是不同的代码则是渐变背景色，不填写采取默认背景色\n\r默认颜色代码：' + DEFAULT_LIGHT_BACKGROUND_COLOR_1 + ' 和 ' + DEFAULT_LIGHT_BACKGROUND_COLOR_2
@@ -988,7 +1022,7 @@ class Widget extends Base {
    * 深色模式
    * @returns {Promise<void>}
    */
-  async actionPreferenceSettings3() {
+  async actionPreferenceSettings4() {
     const alert = new Alert()
     alert.title = '深色模式颜色代码'
     alert.message = '如果都输入相同的颜色代码小组件则是纯色背景色，如果是不同的代码则是渐变背景色，不填写采取默认背景色\n\r默认颜色代码：' + DEFAULT_DARK_BACKGROUND_COLOR_1 + ' 和 ' + DEFAULT_DARK_BACKGROUND_COLOR_2
@@ -1013,7 +1047,7 @@ class Widget extends Base {
    * 高德地图Key
    * @returns {Promise<void>}
    */
-  async actionPreferenceSettings4() {
+  async actionPreferenceSettings5() {
     const alert = new Alert()
     alert.title = '高德地图 Key'
     alert.message = '请输入组件所需要的高德地图 key 用于车辆逆地理编码以及地图资源\n\r获取途径可以在「关于小组件」菜单里加微信群进行咨询了解'
@@ -1022,7 +1056,11 @@ class Widget extends Base {
     alert.addCancelAction('取消')
 
     const id = await alert.presentAlert()
-    if (id === -1) return await this.actionPreferenceSettings()
+    if (id === -1) {
+      this.settings['aMapKey'] = AUDI_AMAP_KEY
+      this.saveSettings()
+      return await this.actionPreferenceSettings()
+    }
     this.settings['aMapKey'] = alert.textFieldValue(0)
     this.saveSettings()
 
